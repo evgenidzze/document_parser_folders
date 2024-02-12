@@ -13,7 +13,6 @@ google-auth-oauthlib==1.2.0
 gspread==5.12.4
 h11==0.14.0
 idna==3.6
-img2table==1.2.8
 llvmlite==0.42.0
 lxml==4.9.3
 numba==0.59.0

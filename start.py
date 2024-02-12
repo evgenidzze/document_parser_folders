@@ -13,7 +13,7 @@ def get_vp_secret():
         workbook = load_workbook(file_path)
         sheet = workbook.active
 
-        for row in sheet.iter_rows(values_only=True):
+        for row in sheet.iter_rows(values_only=True, min_row=2):
             vp_num_value, secret_num_value = row[0], row[1]
             options = webdriver.ChromeOptions()
             options.add_experimental_option('prefs', {
@@ -29,7 +29,7 @@ root = tk.Tk()
 
 root.title("Document Parser Folders")
 
-file_button = tk.Button(root, text="Choose CSV File", command=get_vp_secret)
+file_button = tk.Button(root, text="Choose XLSX File", command=get_vp_secret)
 file_button.pack(pady=20)
 
 root.mainloop()
