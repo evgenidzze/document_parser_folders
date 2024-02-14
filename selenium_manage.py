@@ -54,3 +54,4 @@ def perform_selenium_actions(vp_num_value, secret_num_value, driver: webdriver.F
             print(f'!!! АККАУНТ {vp_num_value} НЕ ЗНАЙДЕНО')
     else:
         print('SITE DOES NOT RESPONSE')
+

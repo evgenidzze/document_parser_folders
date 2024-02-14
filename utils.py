@@ -233,3 +233,4 @@ def get_until_not_vp_num(driver: webdriver.Firefox, url):
             driver.refresh()
     else:
         return vp_num
+
