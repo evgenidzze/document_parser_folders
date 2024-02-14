@@ -2,9 +2,9 @@ import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions as ec
 
-from utils import save_postanovy_data, search_attempts, get_until_not_vp_num
+from utils import save_postanovy_data, search_attempts, get_until_not_vp_num, create_or_take_workbook
 
 
 def perform_selenium_actions(vp_num_value, secret_num_value, driver: webdriver.Firefox):
@@ -18,7 +18,7 @@ def perform_selenium_actions(vp_num_value, secret_num_value, driver: webdriver.F
     if vp_num:
         print('waiting for visibility Секретний номер')
         secret_num = WebDriverWait(driver, 10).until(
-            EC.visibility_of_element_located(
+            ec.visibility_of_element_located(
                 (By.CSS_SELECTOR, 'input[data-ng-model="vm.data.model.filterVPData.SecretNum"]'))
         )
 
@@ -32,7 +32,7 @@ def perform_selenium_actions(vp_num_value, secret_num_value, driver: webdriver.F
         WebDriverWait(driver, 5).until(lambda driver: secret_num.get_attribute("value") != "")
 
         element = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable(
+            ec.element_to_be_clickable(
                 (By.XPATH, "//button[@class='btn btn--color-info' and @data-ng-click='vm.events.searchSides()']"))
         )
         print('click Шукати')
@@ -40,7 +40,7 @@ def perform_selenium_actions(vp_num_value, secret_num_value, driver: webdriver.F
         account_exist = search_attempts(driver, element)
         if account_exist:
             perelik_postanov_btn = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Перелік постанов')]"))
+                ec.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'Перелік постанов')]"))
             )
             perelik_postanov_btn.click()
             print('зберігаються файли')
@@ -48,10 +48,13 @@ def perform_selenium_actions(vp_num_value, secret_num_value, driver: webdriver.F
             print('всі файли збережено')
 
         else:
+            wb = create_or_take_workbook()
+            sheet = wb.active
+            sheet.append((vp_num_value, secret_num_value))
+            wb.save('error_vp.xlsx')
             with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
                 f.write(f"Сторінку з {vp_num_value} не завантажено\n")
             print(f'!!! АККАУНТ {vp_num_value} НЕ ЗНАЙДЕНО')
             print(f'!!! АККАУНТ {vp_num_value} НЕ ЗНАЙДЕНО')
     else:
         print('SITE DOES NOT RESPONSE')
-
