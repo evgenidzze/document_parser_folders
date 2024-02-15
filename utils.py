@@ -2,9 +2,7 @@ import os
 import shutil
 import time
 
-import requests
 from openpyxl.workbook import Workbook
-from pyhtml2pdf import converter
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
