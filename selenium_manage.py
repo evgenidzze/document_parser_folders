@@ -4,7 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 
-from utils import save_postanovy_data, search_attempts, get_until_not_vp_num, create_or_take_workbook
+from utils import save_postanovy_data, search_attempts, get_until_not_vp_num, create_or_take_workbook, vp_num_in_sheet
 
 
 def perform_selenium_actions(vp_num_value, secret_num_value, driver: webdriver.Firefox):
@@ -50,7 +50,8 @@ def perform_selenium_actions(vp_num_value, secret_num_value, driver: webdriver.F
         else:
             wb = create_or_take_workbook()
             sheet = wb.active
-            sheet.append((vp_num_value, secret_num_value))
+            if not vp_num_in_sheet(sheet, vp_num_value):
+                sheet.append((vp_num_value, secret_num_value))
             wb.save('error_vp.xlsx')
             with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
                 f.write(f"Сторінку з {vp_num_value} не завантажено\n")

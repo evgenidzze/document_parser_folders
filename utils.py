@@ -1,7 +1,10 @@
 import os
 import shutil
 import time
+
+import requests
 from openpyxl.workbook import Workbook
+from pyhtml2pdf import converter
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -63,31 +66,48 @@ def doc_data(postanovy_table, driver, doc_type, vp_num_value, secret_num):
     wb = create_or_take_workbook()
     sheet = wb.active
     for postanova in all_postanovas:
-        try:
-            postanova_data = WebDriverWait(postanova, 10).until(
-                ex.visibility_of_all_elements_located((By.TAG_NAME, 'td'))
-            )
-            doc_number = postanova_data[0].text
-            doc_date = postanova_data[1].text
-            doc_name = postanova_data[2].text
-            format_small = '.pdf'
-            format_high = '.PDF'
-            if doc_name.endswith('.zip') or doc_name.endswith('.ZIP'):
-                format_small = '.zip'
-                format_high = '.ZIP'
+        # try:
+        postanova_data = WebDriverWait(postanova, 10).until(
+            ex.visibility_of_all_elements_located((By.TAG_NAME, 'td'))
+        )
+        doc_number = postanova_data[0].text
+        doc_date = postanova_data[1].text
+        doc_name = postanova_data[2].text
+        format_small = '.pdf'
+        format_high = '.PDF'
+        if doc_name.endswith('.zip') or doc_name.endswith('.ZIP'):
+            format_small = '.zip'
+            format_high = '.ZIP'
+        elif doc_name.endswith('.html') or doc_name.endswith('.HTML'):
+            format_small = '.html'
+            format_high = '.HTML'
 
-            new_file_name = f"{doc_number} {doc_date} {doc_name}{format_small}".replace('/', ' ')
-            new_file_name_bytes = new_file_name.encode('utf-8')
-            new_file_name = new_file_name_bytes[:250].decode('utf-8', 'ignore').rstrip(format_small).rstrip(
-                format_high) + format_small
-            downloads_directory = os.path.abspath(f'./Документи по ВП/{vp_num_value}')
-            if os.path.isfile(os.path.join(downloads_directory, doc_type, new_file_name)):
-                continue
-            success_pdf_preview_switch = open_and_switch_to_pdf(driver, postanova, doc_name, vp_num_value)
-            if success_pdf_preview_switch:
-                if not os.path.exists(downloads_directory):
-                    os.makedirs(downloads_directory)
-                delete_pdf_files(downloads_directory)
+        new_file_name = f"{doc_number} {doc_date} {doc_name}{format_small}".replace('/', ' ')
+        new_file_name_bytes = new_file_name.encode('utf-8')
+        new_file_name = new_file_name_bytes[:250].decode('utf-8', 'ignore').rstrip(format_small).rstrip(
+            format_high) + format_small
+        downloads_directory = os.path.abspath(f'./Документи по ВП/{vp_num_value}')
+        if os.path.isfile(os.path.join(downloads_directory, doc_type,
+                                       new_file_name)):  # Документи по ВП/65892962/Інші документи/doc_name.pdf
+            continue
+        success_pdf_preview_switch, is_html = document_page_preview(driver, postanova, doc_name, vp_num_value)
+        if success_pdf_preview_switch:
+            if not os.path.exists(downloads_directory):
+                os.makedirs(downloads_directory)
+            delete_old_files(downloads_directory)
+            if is_html:
+                iframe = is_xpath_on_page(driver, '/html/body/div[1]/ui-view/section[2]/div/div[2]/div[4]/iframe')
+                url = iframe.get_attribute('src')
+                driver.get(url)
+                with open(os.path.join(os.path.abspath(f'./Документи по ВП/{vp_num_value}'), 'document.html'),
+                          "w") as f:
+                    WebDriverWait(driver, 10).until(
+                        ex.url_contains('blob:https')
+                    )
+                    f.write(driver.page_source)
+                    driver.back()
+
+            else:
                 element = WebDriverWait(driver, 10).until(
                     ex.element_to_be_clickable(
                         (By.XPATH,
@@ -95,32 +115,38 @@ def doc_data(postanovy_table, driver, doc_type, vp_num_value, secret_num):
                 )
                 element.click()
 
-                downloaded_file_name = wait_for_pdf(downloads_directory)
+            downloaded_file_name = wait_for_new_file(downloads_directory)
 
-                rename_replace_file(downloads_directory, downloaded_file_name, new_file_name,
-                                    vp_num_value,
-                                    doc_type)
-            else:
-                with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
-                    f.write(f"{vp_num_value}: {doc_type} - не зберігся документ №{doc_number}\n")
-                sheet.append((vp_num_value, secret_num))
-            try:
-                button_back = WebDriverWait(driver, 40).until(
-                    ex.element_to_be_clickable(
-                        (By.XPATH, "//button[contains(text(), 'Назад')]"))
-                )
-                button_back.click()
-            except:
-                sheet.append((vp_num_value, secret_num))
-                text = f"{vp_num_value}: {doc_type} - не збереглись документи після документу №{doc_number}\n"
-                if doc_type == 'Перелік постанов':
-                    text = f"{vp_num_value}: {doc_type} та Інші документи - не збереглись документи після постанови №{doc_number}\n"
-                with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
-                    f.write(text)
-        except:
-            sheet.append((vp_num_value, secret_num))
+            rename_replace_file(downloads_directory, downloaded_file_name, new_file_name,
+                                vp_num_value,
+                                doc_type)
+        else:
             with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
-                f.write(f"{vp_num_value}; {doc_type} - деякі з постанов не вдалось завантажити\n")
+                f.write(f"{vp_num_value}: {doc_type} - не зберігся документ №{doc_number}\n")
+            if not vp_num_in_sheet(sheet, vp_num_value):
+                sheet.append((vp_num_value, secret_num))
+        try:
+            button_back = WebDriverWait(driver, 40).until(
+                ex.element_to_be_clickable(
+                    (By.XPATH, "//button[contains(text(), 'Назад')]"))
+            )
+            button_back.click()
+        except:
+            if not vp_num_in_sheet(sheet, vp_num_value):
+                sheet.append((vp_num_value, secret_num))
+
+            text = f"{vp_num_value}: {doc_type} - не збереглись документи після документу №{doc_number}\n"
+            if doc_type == 'Перелік постанов':
+                text = f"{vp_num_value}: {doc_type} та Інші документи - не збереглись документи після постанови №{doc_number}\n"
+            with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
+                f.write(text)
+            wb.save('error_vp.xlsx')
+            return
+        # except Exception as err:
+        #     print(err)
+        #     sheet.append((vp_num_value, secret_num))
+        #     with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
+        #         f.write(f"{vp_num_value}; {doc_type} - деякі з постанов не вдалось завантажити\n")
     wb.save('error_vp.xlsx')
     return True
 
@@ -134,6 +160,13 @@ def create_or_take_workbook():
     return wb_append
 
 
+def vp_num_in_sheet(sheet, vp_num):
+    for row in sheet.iter_rows(values_only=True):
+        if vp_num in row[0]:
+            return True
+    return False
+
+
 def other_document_if_exist(driver, text):
     try:
         element = WebDriverWait(driver, 5).until(
@@ -145,19 +178,21 @@ def other_document_if_exist(driver, text):
         return False
 
 
-def wait_for_pdf(downloads_directory):
+formats = [".pdf", ".PDF", '.zip', '.ZIP', ".html", ".HTML"]
+
+
+def wait_for_new_file(downloads_directory):
     while True:
         files = os.listdir(downloads_directory)
         for file in files:
-            if file.endswith(".pdf") or file.endswith(".PDF") or file.endswith('.zip') or file.endswith('.ZIP'):
+            if any(file.endswith(format_name) for format_name in formats):
                 return os.path.join(downloads_directory, file)
         time.sleep(1)
 
 
-def delete_pdf_files(directory):
+def delete_old_files(directory):
     for filename in os.listdir(directory):
-        if filename.endswith(".pdf") or filename.endswith(".PDF") or filename.endswith('.zip') or filename.endswith(
-                '.ZIP'):
+        if any(filename.endswith(format_name) for format_name in formats):
             filepath = os.path.join(directory, filename)
             os.remove(filepath)
             print("Видалено файл:", filepath)
@@ -186,16 +221,24 @@ def move_file(source, destination):
         shutil.move(source, destination)
 
 
-def open_and_switch_to_pdf(driver, document, doc_name, vp_num_value):
-    try:
-        doc_name_to_click = WebDriverWait(document, 10).until(
-            ex.element_to_be_clickable((By.CLASS_NAME, 'init-link'))
-        )
-        doc_name_to_click.click()
-        res = wait_pdf(driver, document, doc_name, vp_num_value)
-    except:
-        res = None
-    return res
+def document_page_preview(driver, document, doc_name, vp_num_value):
+    # try:
+    #     doc_name_to_click = WebDriverWait(document, 10).until(
+    #         ex.element_to_be_clickable((By.CLASS_NAME, 'init-link'))
+    #     )
+    #     doc_name_to_click.click()
+    #     res, is_html = wait_pdf(driver, document, doc_name, vp_num_value)
+    # except Exception as err:
+    #     print(err)
+    #     res = None
+    #     is_html = None
+    # return res, is_html
+    doc_name_to_click = WebDriverWait(document, 10).until(
+        ex.element_to_be_clickable((By.CLASS_NAME, 'init-link'))
+    )
+    doc_name_to_click.click()
+    res, is_html = wait_pdf(driver, document, doc_name, vp_num_value)
+    return res, is_html
 
 
 def search_attempts(driver, element):
@@ -213,47 +256,58 @@ def search_attempts(driver, element):
     return success_search
 
 
-def wait_pdf(driver, document, doc_name, vp_num_value):
+def wait_pdf(driver: webdriver.Chrome, document, doc_name, vp_num_value):
     count = 0
     success_search = False
-    while count != 3 and not success_search:
+    is_html = False
+
+    while count != 3:
         try:
-            WebDriverWait(driver, 10).until(
-                ex.visibility_of_element_located((By.ID, "pdfPlaceholder"))
-            )
-            success_search = True
-        except:
-            not_available_only_download = is_xpath_on_page(driver,
-                                                           '/html/body/div[1]/ui-view/section[2]/div/div[2]/div[5]')
-            file_not_found = is_xpath_on_page(driver, '/html/body/div[1]/ui-view/section[2]/div/div[2]/div[6]')
+            WebDriverWait(driver, 5).until(
+                ex.visibility_of_element_located((By.XPATH, "//section[@class='print-hide' and @id='page3']")))
+            div_file_types = WebDriverWait(driver, 10).until(
+                ex.visibility_of_element_located((By.XPATH,
+                                                  "//div[contains(@class, 'row--align-center') and contains(@data-ng-show, '!vm.ui.fileView.isLoading')]")))
+            all_div_types = WebDriverWait(div_file_types, 5).until(
+                ex.visibility_of_element_located((By.XPATH, "//div[@class='row row--align-center' and @ng-show]")))
+            file_type = all_div_types.get_attribute("ng-show").split('==')[-1].replace("'", '').strip()
 
-            if not_available_only_download:
-                return True
-
-            elif file_not_found:
-                try:
-                    button_back = WebDriverWait(driver, 20).until(
-                        ex.visibility_of_element_located(
-                            (By.XPATH, "//button[contains(text(), 'Назад')]"))
-                    )
-                    button_back.click()
-                    doc_name_to_click = WebDriverWait(document, 10).until(
-                        ex.element_to_be_clickable((By.CLASS_NAME, 'init-link'))
-                    )
-                    doc_name_to_click.click()
-                except:
-                    with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
-                        f.write(f"Сторінку з {doc_name} не завантажено (vp: {vp_num_value})\n")
-
-            success_search = False
+            if file_type == 'pdf':
+                WebDriverWait(driver, 5).until(
+                    ex.visibility_of_element_located((By.ID, "pdfPlaceholder"))
+                )
+                return True, False
+            elif file_type == 'html':
+                return True, True
+            elif file_type == 'unknown':
+                return True, False
+        except Exception as err:
+            print(err)
             count += 1
             print('pdf page loading')
-    return success_search
+
+    return False, False
 
 
-def is_xpath_on_page(driver, path):
+def try_back(driver, document, doc_name, vp_num_value):
     try:
-        element = WebDriverWait(driver, 5).until(
+        button_back = WebDriverWait(driver, 20).until(
+            ex.visibility_of_element_located(
+                (By.XPATH, "//button[contains(text(), 'Назад')]"))
+        )
+        button_back.click()
+        doc_name_to_click = WebDriverWait(document, 10).until(
+            ex.element_to_be_clickable((By.CLASS_NAME, 'init-link'))
+        )
+        doc_name_to_click.click()
+    except:
+        with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
+            f.write(f"Сторінку з {doc_name} не завантажено (vp: {vp_num_value})\n")
+
+
+def is_xpath_on_page(driver, path, wait=5):
+    try:
+        element = WebDriverWait(driver, wait).until(
             ex.visibility_of_element_located(
                 (By.XPATH, path)
             )

@@ -1,8 +1,9 @@
+import time
 import tkinter as tk
 from tkinter import filedialog
 from openpyxl import load_workbook
 from selenium import webdriver
-
+import pandas as pd
 from selenium_manage import perform_selenium_actions
 import os
 
