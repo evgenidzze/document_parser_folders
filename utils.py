@@ -63,83 +63,90 @@ def doc_data(postanovy_table, driver, doc_type, vp_num_value, secret_num):
     all_postanovas = postanovy_table.find_elements(By.TAG_NAME, 'tr')
     wb = create_or_take_workbook()
     sheet = wb.active
+    count = 0
     for postanova in all_postanovas:
-        # try:
-        postanova_data = WebDriverWait(postanova, 10).until(
-            ex.visibility_of_all_elements_located((By.TAG_NAME, 'td'))
-        )
-        doc_number = postanova_data[0].text
-        doc_date = postanova_data[1].text
-        doc_name = postanova_data[2].text
-        format_small = '.pdf'
-        format_high = '.PDF'
-        if doc_name.endswith('.zip') or doc_name.endswith('.ZIP'):
-            format_small = '.zip'
-            format_high = '.ZIP'
-        elif doc_name.endswith('.html') or doc_name.endswith('.HTML'):
-            format_small = '.html'
-            format_high = '.HTML'
-
-        new_file_name = f"{doc_number} {doc_date} {doc_name}{format_small}".replace('/', ' ')
-        new_file_name_bytes = new_file_name.encode('utf-8')
-        new_file_name = new_file_name_bytes[:250].decode('utf-8', 'ignore').rstrip(format_small).rstrip(
-            format_high) + format_small
-        downloads_directory = os.path.abspath(f'./Документи по ВП/{vp_num_value}')
-        if os.path.isfile(os.path.join(downloads_directory, doc_type,
-                                       new_file_name)):  # Документи по ВП/65892962/Інші документи/doc_name.pdf
-            continue
-        success_pdf_preview_switch, is_html = document_page_preview(driver, postanova, doc_name, vp_num_value)
-        if success_pdf_preview_switch:
-            if not os.path.exists(downloads_directory):
-                os.makedirs(downloads_directory)
-            delete_old_files(downloads_directory)
-            if is_html:
-                iframe = is_xpath_on_page(driver, '/html/body/div[1]/ui-view/section[2]/div/div[2]/div[4]/iframe')
-                url = iframe.get_attribute('src')
-                driver.get(url)
-                with open(os.path.join(os.path.abspath(f'./Документи по ВП/{vp_num_value}'), 'document.html'),
-                          "w") as f:
-                    WebDriverWait(driver, 10).until(
-                        ex.url_contains('blob:https')
-                    )
-                    f.write(driver.page_source)
-                    driver.back()
-
-            else:
-                element = WebDriverWait(driver, 10).until(
-                    ex.element_to_be_clickable(
-                        (By.XPATH,
-                         "//a[@data-ng-click='vm.events.btnViewFileDownloadFile()']"))
-                )
-                element.click()
-
-            downloaded_file_name = wait_for_new_file(downloads_directory)
-
-            rename_replace_file(downloads_directory, downloaded_file_name, new_file_name,
-                                vp_num_value,
-                                doc_type)
-        else:
-            with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
-                f.write(f"{vp_num_value}: {doc_type} - не зберігся документ №{doc_number}\n")
-            if not vp_num_in_sheet(sheet, vp_num_value):
-                sheet.append((vp_num_value, secret_num))
         try:
-            button_back = WebDriverWait(driver, 15).until(
-                ex.element_to_be_clickable(
-                    (By.XPATH, "//button[contains(text(), 'Назад')]"))
+            postanova_data = WebDriverWait(postanova, 10).until(
+                ex.visibility_of_all_elements_located((By.TAG_NAME, 'td'))
             )
-            button_back.click()
-        except:
-            if not vp_num_in_sheet(sheet, vp_num_value):
-                sheet.append((vp_num_value, secret_num))
+            doc_number = postanova_data[0].text
+            doc_date = postanova_data[1].text
+            doc_name = postanova_data[2].text
+            format_small = '.pdf'
+            format_high = '.PDF'
+            if doc_name.endswith('.zip') or doc_name.endswith('.ZIP'):
+                format_small = '.zip'
+                format_high = '.ZIP'
+            elif doc_name.endswith('.html') or doc_name.endswith('.HTML'):
+                format_small = '.html'
+                format_high = '.HTML'
 
-            text = f"{vp_num_value}: {doc_type} - не збереглись документи після документу №{doc_number}\n"
-            if doc_type == 'Перелік постанов':
-                text = f"{vp_num_value}: {doc_type} та Інші документи - не збереглись документи після постанови №{doc_number}\n"
-            with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
-                f.write(text)
-            wb.save('error_vp.xlsx')
-            return
+            new_file_name = f"{doc_number} {doc_date} {doc_name}{format_small}".replace('/', ' ')
+            new_file_name_bytes = new_file_name.encode('utf-8')
+            new_file_name = new_file_name_bytes[:250].decode('utf-8', 'ignore').rstrip(format_small).rstrip(
+                format_high) + format_small
+            downloads_directory = os.path.abspath(f'./Документи по ВП/{vp_num_value}')
+            if os.path.isfile(os.path.join(downloads_directory, doc_type,
+                                           new_file_name)):  # Документи по ВП/65892962/Інші документи/doc_name.pdf
+                continue
+            success_pdf_preview_switch, is_html = document_page_preview(driver, postanova, doc_name, vp_num_value)
+            if success_pdf_preview_switch:
+                if not os.path.exists(downloads_directory):
+                    os.makedirs(downloads_directory)
+                delete_old_files(downloads_directory)
+                if is_html:
+                    iframe = is_xpath_on_page(driver, '/html/body/div[1]/ui-view/section[2]/div/div[2]/div[4]/iframe')
+                    url = iframe.get_attribute('src')
+                    driver.get(url)
+                    with open(os.path.join(os.path.abspath(f'./Документи по ВП/{vp_num_value}'), 'document.html'),
+                              "w") as f:
+                        WebDriverWait(driver, 10).until(
+                            ex.url_contains('blob:https')
+                        )
+                        f.write(driver.page_source)
+                        driver.back()
+
+                else:
+                    element = WebDriverWait(driver, 10).until(
+                        ex.element_to_be_clickable(
+                            (By.XPATH,
+                             "//a[@data-ng-click='vm.events.btnViewFileDownloadFile()']"))
+                    )
+                    element.click()
+
+                downloaded_file_name = wait_for_new_file(downloads_directory)
+
+                rename_replace_file(downloads_directory, downloaded_file_name, new_file_name,
+                                    vp_num_value,
+                                    doc_type)
+            else:
+                with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
+                    f.write(f"{vp_num_value}: {doc_type} - не зберігся документ №{doc_number}\n")
+                if not vp_num_in_sheet(sheet, vp_num_value):
+                    sheet.append((vp_num_value, secret_num))
+            try:
+                button_back = WebDriverWait(driver, 15).until(
+                    ex.element_to_be_clickable(
+                        (By.XPATH, "//button[contains(text(), 'Назад')]"))
+                )
+                button_back.click()
+            except:
+                if not vp_num_in_sheet(sheet, vp_num_value):
+                    sheet.append((vp_num_value, secret_num))
+
+                text = f"{vp_num_value}: {doc_type} - не збереглись документи після документу №{doc_number}\n"
+                if doc_type == 'Перелік постанов':
+                    text = f"{vp_num_value}: {doc_type} та Інші документи - не збереглись документи після постанови №{doc_number}\n"
+                with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
+                    f.write(text)
+                wb.save('error_vp.xlsx')
+                return
+        except:
+            count += 1
+            if count >= 3:
+                return
+            else:
+                continue
     wb.save('error_vp.xlsx')
     return True
 
