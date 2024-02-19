@@ -124,7 +124,7 @@ def doc_data(postanovy_table, driver, doc_type, vp_num_value, secret_num):
             if not vp_num_in_sheet(sheet, vp_num_value):
                 sheet.append((vp_num_value, secret_num))
         try:
-            button_back = WebDriverWait(driver, 40).until(
+            button_back = WebDriverWait(driver, 15).until(
                 ex.element_to_be_clickable(
                     (By.XPATH, "//button[contains(text(), 'Назад')]"))
             )
@@ -140,11 +140,6 @@ def doc_data(postanovy_table, driver, doc_type, vp_num_value, secret_num):
                 f.write(text)
             wb.save('error_vp.xlsx')
             return
-        # except Exception as err:
-        #     print(err)
-        #     sheet.append((vp_num_value, secret_num))
-        #     with open(os.path.abspath('Документи по ВП/error.txt'), 'a') as f:
-        #         f.write(f"{vp_num_value}; {doc_type} - деякі з постанов не вдалось завантажити\n")
     wb.save('error_vp.xlsx')
     return True
 
@@ -160,7 +155,7 @@ def create_or_take_workbook():
 
 def vp_num_in_sheet(sheet, vp_num):
     for row in sheet.iter_rows(values_only=True):
-        if vp_num in row[0]:
+        if int(vp_num) in row:
             return True
     return False
 
@@ -280,8 +275,8 @@ def wait_pdf(driver: webdriver.Chrome, document, doc_name, vp_num_value):
             elif file_type == 'unknown':
                 return True, False
         except Exception as err:
-            print(err)
             count += 1
+            print(count)
             print('pdf page loading')
 
     return False, False

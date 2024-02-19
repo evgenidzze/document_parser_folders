@@ -24,6 +24,7 @@ def get_vp_secret():
             sheet_error = workbook_error.active
             for row in sheet_error.iter_rows(values_only=True):
                 start_driver(row)
+            return
 
 
 def start_driver(row):
