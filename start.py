@@ -22,7 +22,9 @@ def get_vp_secret():
             os.remove('Документи по ВП/error.txt') if os.path.isfile('Документи по ВП/error.txt') else None
             workbook_error = load_workbook(os.path.abspath('error_vp.xlsx'))
             sheet_error = workbook_error.active
-            for row in sheet_error.iter_rows(values_only=True):
+            error_vp = sheet_error.iter_rows(values_only=True)
+            os.remove('error_vp.xlsx') if os.path.isfile('error_vp.xlsx') else None
+            for row in error_vp:
                 start_driver(row)
             return
 
